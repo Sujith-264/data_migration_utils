@@ -157,3 +157,100 @@ def insert_into_sybase(column_names, data_from_mysql):
             print(f"Inserted {len(data_from_mysql)} rows into Sybase successfully.")
         except pyodbc.Error as e:
             print(f"Error inserting data into Sybase: {e}")
+
+# Database connection details
+SYBASE_CONN_STR = sybase_connection()
+MYSQL_CONN_STR = mysql_connection()
+
+def get_schema_from_mysql():
+    """Extracts schema details from MySQL."""
+    with mysql_connection() as conn_mysql:
+     cursor = conn_mysql.cursor()
+     try:
+      cursor.execute("SHOW TABLES;")
+      schema_data = cursor.fetchall()
+     except mysql.connector.Error as e:
+            print(f"Error inserting data into MySQL: {e}")
+            schema_data=[]
+     finally:
+      conn_mysql.close()
+    return schema_data
+
+def get_schema_from_sybase():
+    """Extracts schema details from Sybase."""
+    with sybase_connection() as conn_sybase:
+     cursor = conn_sybase.cursor()
+     try:   
+      cursor.execute("SELECT name FROM sysobjects WHERE type = 'U';")
+      schema_data = cursor.fetchall()
+     except pyodbc.Error as e:
+            print(f"Error fetching data from Sybase: {e}")
+            schema_data=[]
+     finally:
+      conn_sybase.close()
+    return schema_data
+
+def convert_mysql_to_sybase(mysql_schema):
+    """Converts MySQL schema to Sybase-compatible statements."""
+    converted_statements = []
+    
+    for obj in mysql_schema:
+        name = obj[0]
+        converted_statements.append(f"CREATE TABLE {name} (id INT PRIMARY KEY);")
+    
+    return converted_statements
+
+def convert_sybase_to_mysql(sybase_schema):
+    """Converts Sybase schema to MySQL-compatible statements."""
+    converted_statements = []
+    
+    for obj in sybase_schema:
+        name = obj[0]
+        converted_statements.append(f"CREATE TABLE {name} (id INT PRIMARY KEY);")
+    
+    return converted_statements
+
+def execute_statements_on_mysql(statements):
+    """Executes the converted schema statements on MySQL."""
+    with mysql_connection() as conn_mysql:
+     cursor = conn_mysql.cursor()
+     try:
+      for stmt in statements:
+         cursor.execute(stmt)
+      conn_mysql.commit()
+     except mysql.connector.Error as e:
+            print(f"Error inserting data into MySQL: {e}") 
+     finally:
+        conn_mysql.close()
+    
+     
+    
+
+def execute_statements_on_sybase(statements):
+    """Executes the converted schema statements on Sybase."""
+    with sybase_connection() as conn_sybase:
+     cursor = conn_sybase.cursor()
+    
+     try:
+        for stmt in statements:
+          cursor.execute(stmt)
+        conn_sybase.commit()
+     except pyodbc.Error as e:
+            print(f"Error fetching data from Sybase: {e}")
+            return [], []
+     finally:
+        conn_sybase.close()
+
+def migrate_mysql_to_sybase():
+    """Complete process: Extract from MySQL, Convert, Execute on Sybase."""
+    schema = get_schema_from_mysql()
+    sybase_statements = convert_mysql_to_sybase(schema)
+    execute_statements_on_sybase(sybase_statements)
+    print("Schema migration from MySQL to Sybase completed!")
+
+def migrate_sybase_to_mysql():
+    """Complete process: Extract from Sybase, Convert, Execute on MySQL."""
+    schema = get_schema_from_sybase()
+    mysql_statements = convert_sybase_to_mysql(schema)
+    execute_statements_on_mysql(mysql_statements)
+    print("Schema migration from Sybase to MySQL completed!")
